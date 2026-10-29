@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #FAFAFC;
+  --ink: #1C2230;
+  --muted: #5E6678;
+  --line: #E3E6EC;
+  --red: #C8323F;
+  --blue: #2763B8;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--paper); color: var(--ink); font-family: "Figtree", system-ui, sans-serif; }
+h1, h2, h3, .font-display { font-family: "Literata", Georgia, serif; font-optical-sizing: auto; letter-spacing: -0.01em; }
+
+:focus-visible { outline: 3px solid #2763B8; outline-offset: 2px; border-radius: 6px; }
+
+.opt {
+  @apply w-full rounded-lg border border-ink-300 bg-white px-3 py-2.5 text-left text-[15px] text-ink-700 transition-colors;
+}
+.opt:hover { @apply border-ink-500; }
+.opt[aria-pressed="true"], .opt[aria-checked="true"] { @apply border-ink-900 bg-ink-900 text-white; }
+.opt:disabled { @apply cursor-not-allowed opacity-40; }
+
+.field { @apply w-full rounded-lg border border-ink-300 bg-white px-3.5 py-3 text-base outline-none transition-colors focus:border-ink-900; }
+.btn-primary { @apply inline-flex items-center justify-center rounded-full bg-ink-900 px-6 py-3 text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40; }
+.btn-ghost { @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-[15px] font-medium text-ink-700 hover:bg-ink-100; }
+
+@keyframes hemi-in { from { transform: translateX(var(--from)); opacity: 0; } to { transform: none; opacity: 1; } }
+.hemi { animation: hemi-in 900ms cubic-bezier(.2,.7,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .hemi { animation: none; } * { transition: none !important; } }
