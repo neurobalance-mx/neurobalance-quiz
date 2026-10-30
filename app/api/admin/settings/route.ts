@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSettings, saveSettings, usingMemory } from "@/lib/store";
 import { mergeSettings } from "@/lib/settings";
+import { resendConfigured } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json({ settings: await getSettings(), memory: usingMemory() });
+  return NextResponse.json({ settings: await getSettings(), memory: usingMemory(), resend: resendConfigured() });
 }
 
 export async function PUT(req: Request) {

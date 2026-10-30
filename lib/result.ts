@@ -12,6 +12,7 @@ export function buildResult(args: {
   target: TargetType;
   email: string;
   settings: AppSettings;
+  origin: string; // dominio público, para que los enlaces funcionen también dentro del correo
 }): QuizResult {
   const { answers, context, ageBand, target, settings } = args;
   const { scores, valid } = computeScores(answers);
@@ -19,8 +20,8 @@ export function buildResult(args: {
   const profile = { ...PROFILE_TEXTS[result] };
   if (reason === "early_age") profile.description = EARLY_AGE_TEXT;
 
-  const red = { label: "Guía roja · El Arquitecto Verbal", url: settings.guides.red_url, color: "red" as const };
-  const blue = { label: "Guía azul · El Integrador Contextual", url: settings.guides.blue_url, color: "blue" as const };
+  const red = { label: "Guía roja · El Arquitecto Verbal", url: absoluteUrl(settings.guides.red_url, args.origin), color: "red" as const };
+  const blue = { label: "Guía azul · El Integrador Contextual", url: absoluteUrl(settings.guides.blue_url, args.origin), color: "blue" as const };
   const guides = result === "red" ? [red] : result === "blue" ? [blue] : [red, blue];
 
   const ctx = CONTEXT_QUESTIONS.map((q) => {
@@ -42,7 +43,21 @@ export function buildResult(args: {
     topCategories: topCategories(answers, result),
     challenges: showScores ? reportedChallenges(answers, settings.thresholds.challenge_flag_value) : [],
     context: ctx,
-    emailNote: settings.email_note ? settings.email_note.replace("{email}", args.email) : null,
+    emailNote: null, // se llena en /api/submit solo si el correo se envió
+
     showScores,
   };
+}
+
+export function absoluteUrl(url: string, origin: string): string {
+  try { return new URL(url, origin).toString(); } catch { return url; }
+}
+
+export function publicOrigin(req: Request): string {
+  const env = process.env.PUBLIC_SITE_URL?.replace(/\/$/, "");
+  if (env) return env;
+  const h = req.headers;
+  const host = h.get("x-forwarded-host") || h.get("host");
+  const proto = h.get("x-forwarded-proto") || "https";
+  return host ? `${proto}://${host}` : new URL(req.url).origin;
 }

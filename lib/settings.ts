@@ -17,7 +17,14 @@ export interface AppSettings {
   early_age_mode: "insufficient" | "score"; // 0–5 años: no asignar perfil mientras no exista la adaptación
   guides: { red_url: string; blue_url: string };
   privacy_url: string;
-  email_note: string; // texto bajo los botones de descarga (vacío = no mostrar). {email} se reemplaza.
+  email_note: string; // mensaje en pantalla cuando el correo se envió. {email} se reemplaza. Vacío = texto por defecto.
+  email: {
+    enabled: boolean;
+    from: string; // "Neurobalance <resultados@dominio.com>" — el dominio debe estar verificado en Resend
+    reply_to: string;
+    subject: string; // {nombre} y {perfil} se reemplazan
+    bcc: string; // copia interna opcional (separada por comas)
+  };
   integrations: IntegrationSettings;
 }
 
@@ -27,6 +34,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   guides: { red_url: "/guias/guia-roja.pdf", blue_url: "/guias/guia-azul.pdf" },
   privacy_url: "#",
   email_note: "",
+  email: {
+    enabled: false,
+    from: "Neurobalance <onboarding@resend.dev>",
+    reply_to: "",
+    subject: "{nombre}, este es tu Perfil Cerebral Neurobalance",
+    bcc: "",
+  },
   integrations: {
     ghl: { enabled: false, mode: "webhook", webhook_url: "", api_token: "", location_id: "", tags: "quiz-neurobalance" },
     google_sheets: { enabled: false, webhook_url: "", secret: "" },
@@ -45,6 +59,8 @@ export function mergeSettings(stored: unknown): AppSettings {
   };
   return deep(DEFAULT_SETTINGS, stored);
 }
+
+export const DEFAULT_EMAIL_NOTE = "Te enviamos tu resultado y tus guías a {email}.";
 
 // Versión sin secretos (para mostrar en el panel enmascarada si se requiere).
 export function maskSecret(s: string) {

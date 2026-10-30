@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { AppSettings } from "@/lib/settings";
 import type { ResponseRow } from "@/lib/store";
 import { AGE_BANDS } from "@/lib/questions";
-import Hemispheres from "./Hemispheres";
 
 type Tab = "responses" | "rules" | "integrations";
 const RESULT_LABEL: Record<string, string> = { red: "Rojo", blue: "Azul", combined: "Combinado", insufficient: "Insuficiente" };
@@ -14,6 +13,8 @@ export default function Admin() {
   const [tab, setTab] = useState<Tab>("responses");
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [memory, setMemory] = useState(false);
+  const [resend, setResend] = useState(true);
+  const [testTo, setTestTo] = useState("");
   const [rows, setRows] = useState<ResponseRow[]>([]);
   const [filter, setFilter] = useState<{ status: string; result: string }>({ status: "", result: "" });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -21,7 +22,7 @@ export default function Admin() {
   const [selected, setSelected] = useState<ResponseRow | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/settings").then((r) => r.json()).then((d) => { setSettings(d.settings); setMemory(d.memory); });
+    fetch("/api/admin/settings").then((r) => r.json()).then((d) => { setSettings(d.settings); setMemory(d.memory); setResend(d.resend); });
   }, []);
   useEffect(() => {
     const q = new URLSearchParams(Object.entries(filter).filter(([, v]) => v));
@@ -56,12 +57,20 @@ export default function Admin() {
       : { ok: true, text: "Prueba enviada correctamente. Revisa que la fila o el contacto haya llegado." });
   }
 
+  async function testEmail() {
+    setMsg({ ok: true, text: "Enviando correo de prueba…" });
+    await save();
+    const res = await fetch("/api/admin/test-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: testTo }) });
+    const d = await res.json();
+    setMsg(d.ok ? { ok: true, text: `Correo de prueba enviado a ${testTo}. Revisa también la carpeta de spam.` } : { ok: false, text: `No se envió: ${d.error || d.status}` });
+  }
+
   const set = (fn: (s: AppSettings) => void) => setSettings((s) => { if (!s) return s; const c = structuredClone(s); fn(c); return c; });
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5"><Hemispheres size={24} /><span className="text-lg font-semibold">Panel Neurobalance</span></div>
+        <div className="flex items-center gap-3">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/logo.png" alt="Neurobalance" className="h-7 w-auto" /><span className="border-l border-ink-300 pl-3 text-[15px] font-medium text-ink-500">Panel</span></div>
         <form action="/api/admin/logout" method="post"><button className="btn-ghost text-sm">Cerrar sesión</button></form>
       </header>
 
@@ -181,8 +190,8 @@ export default function Admin() {
             <Text label="URL de la guía roja (PDF)" value={settings.guides.red_url} onChange={(v) => set((s) => { s.guides.red_url = v; })} />
             <Text label="URL de la guía azul (PDF)" value={settings.guides.blue_url} onChange={(v) => set((s) => { s.guides.blue_url = v; })} />
             <Text label="URL del aviso de privacidad" value={settings.privacy_url} onChange={(v) => set((s) => { s.privacy_url = v; })} />
-            <Text label="Nota bajo los botones de descarga" hint="Usa {email} para insertar el correo. Vacío = no mostrar." value={settings.email_note}
-              placeholder="También te enviamos el material a {email}." onChange={(v) => set((s) => { s.email_note = v; })} />
+            <Text label="Mensaje en pantalla cuando se envía el correo" hint="Usa {email} para insertar el correo. Vacío = texto por defecto." value={settings.email_note}
+              placeholder="Te enviamos tu resultado y tus guías a {email}." onChange={(v) => set((s) => { s.email_note = v; })} />
           </Card>
           <div className="lg:col-span-2"><button className="btn-primary" onClick={save} disabled={saving}>{saving ? "Guardando…" : "Guardar cambios"}</button></div>
         </section>
@@ -190,6 +199,22 @@ export default function Admin() {
 
       {tab === "integrations" && settings && (
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
+          <div className="lg:col-span-2">
+            <Card title="Correo de resultados (Resend)" toggle={settings.email.enabled} onToggle={(v) => set((s) => { s.email.enabled = v; })}
+              note="Al terminar el quiz, la persona recibe su perfil, sus indicadores y los enlaces a sus guías en el correo que registró.">
+              {!resend && <p className="rounded-lg bg-nbred-50 p-3 text-sm text-nbred-700">Falta la variable RESEND_API_KEY en Vercel. Sin ella no se envía ningún correo.</p>}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Text label="Remitente" hint="El dominio debe estar verificado en Resend. Ej.: Neurobalance <resultados@neurobalance.com>" value={settings.email.from} onChange={(v) => set((s) => { s.email.from = v; })} />
+                <Text label="Responder a" hint="Opcional. A dónde llegan las respuestas de las personas." value={settings.email.reply_to} onChange={(v) => set((s) => { s.email.reply_to = v; })} />
+                <Text label="Asunto" hint="{nombre} y {perfil} se reemplazan automáticamente." value={settings.email.subject} onChange={(v) => set((s) => { s.email.subject = v; })} />
+                <Text label="Copia oculta (BCC)" hint="Opcional. Para recibir una copia de cada resultado; separa varios con coma." value={settings.email.bcc} onChange={(v) => set((s) => { s.email.bcc = v; })} />
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[240px] flex-1"><Text label="Enviar correo de prueba a" value={testTo} onChange={setTestTo} placeholder="tu@correo.com" /></div>
+                <button className="btn-primary py-3 text-sm" onClick={testEmail} disabled={!testTo}>Enviar prueba</button>
+              </div>
+            </Card>
+          </div>
           <Card title="GoHighLevel" toggle={settings.integrations.ghl.enabled} onToggle={(v) => set((s) => { s.integrations.ghl.enabled = v; })}
             note="Webhook: dispara un workflow con todos los campos (recomendado para mapear campos personalizados y enviar la guía por correo). API: crea o actualiza el contacto con etiquetas.">
             <label className="block">

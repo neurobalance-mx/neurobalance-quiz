@@ -337,8 +337,8 @@ function Shell({ children, topRef }: { children: React.ReactNode; topRef: React.
     <main className="mx-auto max-w-[680px] px-4 pb-10 pt-4 sm:px-6 sm:pt-8">
       <div ref={topRef} className="scroll-mt-4" />
       <header className="flex items-center gap-2.5 py-2">
-        <Hemispheres size={22} />
-        <span className="text-[15px] font-semibold">Neurobalance</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Neurobalance" width={165} height={28} className="h-7 w-auto" />
       </header>
       {children}
     </main>

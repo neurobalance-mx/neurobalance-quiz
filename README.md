@@ -83,6 +83,15 @@ function doPost(e) {
 3. Agrega *Agregar una fila a una tabla* (Excel Online) o *Crear elemento* (SharePoint) y mapea los campos.
 4. Guarda, copia la URL del disparador y pégala en el panel.
 
+### Correo de resultados (Resend)
+Al terminar, la persona recibe en su correo su perfil, los cuatro indicadores, fortalezas, retos señalados y los botones para descargar sus guías.
+1. Crea una cuenta en resend.com con el correo del cliente.
+2. **Domains → Add domain**, agrega el dominio del cliente (se recomienda un subdominio, ej. `mail.neurobalance.com`) y crea en su DNS los registros que indica Resend (SPF, DKIM y MX). Espera a que quede *Verified*.
+3. **API Keys → Create API key** con permiso *Sending access* y agrégala en Vercel como `RESEND_API_KEY`. Opcional: `PUBLIC_SITE_URL` con el dominio final del quiz. Vuelve a desplegar.
+4. En **/admin → Integraciones → Correo de resultados**: activa, pon el remitente (`Neurobalance <resultados@mail.neurobalance.com>`), el correo para respuestas y, si quieres, una copia oculta. Usa *Enviar prueba*.
+
+Sin dominio verificado, Resend solo permite enviar desde `onboarding@resend.dev` y únicamente al correo de la cuenta de Resend: sirve para probar, no para producción. Si el envío falla, el resultado se muestra igual y el error queda en la columna *Envíos* del panel.
+
 ### Webhook genérico
 Para Zapier, Make, n8n u otro CRM. Envía el encabezado opcional `X-Webhook-Secret`.
 

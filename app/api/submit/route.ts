@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createResponse, getResponse, getSettings, updateResponse } from "@/lib/store";
 import { parseAnswers, parseContext, parseLead, parseSetup, parseUtm } from "@/lib/validate";
-import { buildResult } from "@/lib/result";
+import { buildResult, publicOrigin } from "@/lib/result";
+import { sendResultEmail } from "@/lib/email";
+import { DEFAULT_EMAIL_NOTE } from "@/lib/settings";
 import { buildPayload } from "@/lib/payload";
 import { dispatchIntegrations } from "@/lib/integrations";
 import { QUIZ_VERSION } from "@/lib/questions";
@@ -30,7 +32,8 @@ export async function POST(req: Request) {
       } as any);
     }
 
-    const result = buildResult({ id: row.id, answers, context, ageBand: setup.age_band, target: setup.target_type, email: lead.email, settings });
+    const origin = publicOrigin(req);
+    const result = buildResult({ id: row.id, answers, context, ageBand: setup.age_band, target: setup.target_type, email: lead.email, settings, origin });
 
     const saved = await updateResponse(row.id, {
       status: "completed",
@@ -43,10 +46,18 @@ export async function POST(req: Request) {
       guide_urls: result.guides.map((g) => g.url),
     });
 
-    // Envío a GHL / Google Sheets / Microsoft / webhook. Un fallo aquí nunca bloquea el resultado.
+    // Correo con el resultado + envío a GHL / Google Sheets / Microsoft / webhook, en paralelo.
+    // Un fallo aquí nunca bloquea el resultado; queda registrado en integrations_log.
     try {
-      const log = await dispatchIntegrations(settings, buildPayload(saved));
-      if (log.length) await updateResponse(row.id, { integrations_log: log });
+      const [emailLog, log] = await Promise.all([
+        settings.email.enabled
+          ? sendResultEmail({ to: lead.email, name: lead.name, target: setup.target_type, subjectName: setup.subject_name, result, origin }, settings)
+          : Promise.resolve(null),
+        dispatchIntegrations(settings, buildPayload(saved)),
+      ]);
+      const all = emailLog ? [emailLog, ...log] : log;
+      if (all.length) await updateResponse(row.id, { integrations_log: all });
+      if (emailLog?.ok) result.emailNote = (settings.email_note || DEFAULT_EMAIL_NOTE).replace("{email}", lead.email);
     } catch (e) { console.error("integrations", e); }
 
     return NextResponse.json(result);
