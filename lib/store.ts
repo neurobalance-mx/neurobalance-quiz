@@ -34,7 +34,12 @@ let client: SupabaseClient | null = null;
 function sb(): SupabaseClient | null {
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
-  if (!client) client = createClient(url, key, { auth: { persistSession: false } });
+  if (!client)
+    client = createClient(url, key, {
+      auth: { persistSession: false },
+      // Next.js guarda en caché las lecturas con fetch por defecto; aquí siempre se necesita el dato actual.
+      global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }) },
+    });
   return client;
 }
 
