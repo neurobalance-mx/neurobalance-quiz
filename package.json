@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:scoring": "tsx scripts/test-scoring.ts"
+    "test:scoring": "tsx scripts/test-scoring.ts && tsx scripts/test-kids.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

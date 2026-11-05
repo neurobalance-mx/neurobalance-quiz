@@ -4,8 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import type { AppSettings } from "@/lib/settings";
 import type { ResponseRow } from "@/lib/store";
 import { AGE_BANDS } from "@/lib/questions";
+import { KIDS_AGE_BANDS, KIDS_ITEMS, COMMUNICATION_OPTIONS, itemCode } from "@/lib/kids";
 
-type Tab = "responses" | "rules" | "integrations";
+type Tab = "responses" | "rules" | "kids" | "integrations";
+const ageLabel = (v: string | null) => [...AGE_BANDS, ...KIDS_AGE_BANDS].find((a) => a.value === v)?.label ?? "—";
+const isKids = (r: ResponseRow) => r.quiz_type === "kids";
 const RESULT_LABEL: Record<string, string> = { red: "Rojo", blue: "Azul", combined: "Combinado", insufficient: "Insuficiente" };
 const RESULT_DOT: Record<string, string> = { red: "bg-nbred-500", blue: "bg-nbblue-500", combined: "bg-gradient-to-r from-nbred-500 to-nbblue-500", insufficient: "bg-ink-300" };
 
@@ -16,7 +19,8 @@ export default function Admin() {
   const [resend, setResend] = useState(true);
   const [testTo, setTestTo] = useState("");
   const [rows, setRows] = useState<ResponseRow[]>([]);
-  const [filter, setFilter] = useState<{ status: string; result: string }>({ status: "", result: "" });
+  const [filter, setFilter] = useState<{ status: string; result: string; type: string }>({ status: "", result: "", type: "" });
+  const [kidsTestTo, setKidsTestTo] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<ResponseRow | null>(null);
@@ -65,6 +69,16 @@ export default function Admin() {
     setMsg(d.ok ? { ok: true, text: `Correo de prueba enviado a ${testTo}. Revisa también la carpeta de spam.` } : { ok: false, text: `No se envió: ${d.error || d.status}` });
   }
 
+  async function testKidsEmail() {
+    setMsg({ ok: true, text: "Enviando correo de prueba de niños…" });
+    await save();
+    const res = await fetch("/api/admin/test-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: kidsTestTo, type: "kids" }) });
+    const d = await res.json();
+    setMsg(d.ok ? { ok: true, text: `Correo de prueba enviado a ${kidsTestTo}${d.error ? ` (${d.error})` : ""}. Revisa también la carpeta de spam.` } : { ok: false, text: `No se envió: ${d.error || d.status}` });
+  }
+
+  const exportQs = new URLSearchParams(Object.entries({ status: filter.status, type: filter.type }).filter(([, v]) => v)).toString();
+
   const set = (fn: (s: AppSettings) => void) => setSettings((s) => { if (!s) return s; const c = structuredClone(s); fn(c); return c; });
 
   return (
@@ -81,7 +95,7 @@ export default function Admin() {
       )}
 
       <nav className="mt-6 flex gap-1 border-b border-ink-100">
-        {([["responses", "Respuestas"], ["rules", "Reglas y guías"], ["integrations", "Integraciones"]] as const).map(([k, l]) => (
+        {([["responses", "Respuestas"], ["rules", "Adultos"], ["kids", "Niños"], ["integrations", "Integraciones"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => { setTab(k); setMsg(null); }}
             className={`-mb-px border-b-2 px-4 py-2.5 text-[15px] font-medium ${tab === k ? "border-ink-900 text-ink-900" : "border-transparent text-ink-500 hover:text-ink-900"}`}>{l}</button>
         ))}
@@ -99,6 +113,9 @@ export default function Admin() {
             ))}
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
+            <select className="field w-auto py-2 text-sm" value={filter.type} onChange={(e) => setFilter({ ...filter, type: e.target.value })}>
+              <option value="">Adultos y niños</option><option value="adults">Adultos</option><option value="kids">Niños</option>
+            </select>
             <select className="field w-auto py-2 text-sm" value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value })}>
               <option value="">Todos los estados</option><option value="completed">Completados</option><option value="started">Sin terminar</option>
             </select>
@@ -106,26 +123,27 @@ export default function Admin() {
               <option value="">Todos los perfiles</option>
               {Object.entries(RESULT_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
-            <a href={`/api/admin/export${filter.status ? `?status=${filter.status}` : ""}`} className="btn-primary ml-auto py-2 text-sm">Exportar CSV</a>
+            <a href={`/api/admin/export${exportQs ? `?${exportQs}` : ""}`} className="btn-primary ml-auto py-2 text-sm">Exportar CSV</a>
           </div>
           <div className="mt-4 overflow-x-auto rounded-xl bg-white ring-1 ring-ink-100">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b border-ink-100 text-ink-500">
-                <tr>{["Fecha", "Nombre", "Correo", "Sobre", "Edad", "Perfil", "FL", "FR", "RL", "RR", "Envíos"].map((h) => <th key={h} className="px-3 py-2.5 font-medium">{h}</th>)}</tr>
+                <tr>{["Fecha", "Quiz", "Nombre", "Correo", "Persona evaluada", "Edad", "Perfil", "Puntajes", "Envíos"].map((h) => <th key={h} className="px-3 py-2.5 font-medium">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
-                {rows.length === 0 && <tr><td colSpan={11} className="px-3 py-8 text-center text-ink-500">Aún no hay respuestas. Comparte el quiz para empezar a recibirlas.</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={9} className="px-3 py-8 text-center text-ink-500">Aún no hay respuestas. Comparte el quiz para empezar a recibirlas.</td></tr>}
                 {rows.map((r) => {
                   const log = (r.integrations_log as any[]) || [];
                   return (
                     <tr key={r.id} className="cursor-pointer hover:bg-ink-50" onClick={() => setSelected(r)}>
                       <td className="whitespace-nowrap px-3 py-2.5 text-ink-500">{new Date(r.created_at).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })}</td>
-                      <td className="px-3 py-2.5 font-medium">{r.name}</td>
+                      <td className="px-3 py-2.5">{isKids(r) ? "Niños" : "Adultos"}</td>
+                      <td className="px-3 py-2.5 font-medium">{r.name || <span className="font-normal text-ink-500">Sin nombre</span>}</td>
                       <td className="px-3 py-2.5">{r.email}</td>
-                      <td className="px-3 py-2.5">{r.target_type === "other" ? "Otra persona" : r.target_type === "self" ? "Sí mismo" : "—"}</td>
-                      <td className="px-3 py-2.5">{AGE_BANDS.find((a) => a.value === r.age_band)?.label ?? "—"}</td>
+                      <td className="px-3 py-2.5">{r.subject_name || (r.target_type === "self" ? "Sí mismo" : r.target_type === "other" ? (isKids(r) ? "Hijo (sin nombre)" : "Otra persona") : "—")}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">{ageLabel(r.age_band)}</td>
                       <td className="px-3 py-2.5">{r.result ? <span className="inline-flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${RESULT_DOT[r.result]}`} />{RESULT_LABEL[r.result]}</span> : <span className="text-ink-500">Sin terminar</span>}</td>
-                      {[r.fl, r.fr, r.rl, r.rr].map((v, i) => <td key={i} className="px-3 py-2.5 tabular-nums">{v === null || v === undefined ? "—" : Math.round(Number(v))}</td>)}
+                      <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-ink-700">{scoreText(r)}</td>
                       <td className="px-3 py-2.5">{log.length ? (log.every((l) => l.ok) ? <span className="text-nbblue-600">OK</span> : <span className="text-nbred-600">Error</span>) : <span className="text-ink-300">—</span>}</td>
                     </tr>
                   );
@@ -141,18 +159,39 @@ export default function Admin() {
                   <button className="btn-ghost -mr-3 -mt-2" onClick={() => setSelected(null)}>Cerrar</button>
                 </div>
                 <dl className="mt-5 space-y-2 text-sm">
+                  <Row k="Quiz" v={isKids(selected) ? "Niños" : "Adultos"} />
                   <Row k="Persona evaluada" v={selected.subject_name || (selected.target_type === "self" ? "La misma persona" : "—")} />
+                  <Row k="Edad" v={ageLabel(selected.age_band)} />
+                  {isKids(selected) && <>
+                    <Row k="Comunicación" v={COMMUNICATION_OPTIONS.find((c) => c.value === selected.details?.communication)?.label || "—"} />
+                    <Row k="PR / PA" v={`${selected.details?.PR ?? "—"}% / ${selected.details?.PA ?? "—"}%`} />
+                    <Row k="Intensidad · desequilibrio" v={`${selected.details?.intensity ?? "—"} · ${selected.details?.imbalance ?? "—"}`} />
+                    <Row k="Correo enviado" v={selected.details?.sent_at ? new Date(selected.details.sent_at).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }) : "No"} />
+                  </>}
                   <Row k="Acepta información comercial" v={selected.consent_marketing ? "Sí" : "No"} />
                   <Row k="Versión del quiz" v={selected.quiz_version} />
                   <Row k="Origen" v={Object.values(selected.utm || {}).join(" / ") || "—"} />
                 </dl>
-                <p className="mt-6 font-semibold">Respuestas P01–P36</p>
-                <div className="mt-2 grid grid-cols-6 gap-1.5 text-center text-xs">
-                  {Array.from({ length: 36 }, (_, i) => {
-                    const v = selected.answers?.[String(i + 1)];
-                    return <div key={i} className="rounded bg-ink-50 py-1.5"><span className="block text-ink-500">{i + 1}</span><span className="font-semibold">{v === null ? "N/O" : v ?? "—"}</span></div>;
-                  })}
-                </div>
+                {isKids(selected) ? (
+                  <>
+                    <p className="mt-6 font-semibold">Conductas marcadas</p>
+                    <ul className="mt-2 space-y-1.5 text-sm text-ink-700">
+                      {KIDS_ITEMS.filter((it) => selected.answers?.[itemCode(it.id)] === 1).map((it) => (
+                        <li key={it.id}><span className="mr-1.5 text-ink-500">{String(it.id).padStart(2, "0")}</span>{it.text}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-6 font-semibold">Respuestas P01–P36</p>
+                    <div className="mt-2 grid grid-cols-6 gap-1.5 text-center text-xs">
+                      {Array.from({ length: 36 }, (_, i) => {
+                        const v = selected.answers?.[String(i + 1)];
+                        return <div key={i} className="rounded bg-ink-50 py-1.5"><span className="block text-ink-500">{i + 1}</span><span className="font-semibold">{v === null ? "N/O" : v ?? "—"}</span></div>;
+                      })}
+                    </div>
+                  </>
+                )}
                 <p className="mt-6 font-semibold">Envíos a integraciones</p>
                 <ul className="mt-2 space-y-1 text-sm">
                   {((selected.integrations_log as any[]) || []).map((l, i) => (
@@ -197,11 +236,48 @@ export default function Admin() {
         </section>
       )}
 
+      {tab === "kids" && settings && (
+        <section className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Card title="Reglas de resultado" note="El perfil lo define el lado con mayor porcentaje de conductas marcadas. Empates: Movimiento, luego Vida diaria y sentidos, y al final rojo.">
+            <Num label="Intensidad moderada desde (% del total marcado)" value={settings.kids.intensity_moderate} min={1} max={100} onChange={(v) => set((s) => { s.kids.intensity_moderate = v; })} />
+            <Num label="Intensidad marcada desde (% del total marcado)" value={settings.kids.intensity_marked} min={1} max={100} onChange={(v) => set((s) => { s.kids.intensity_marked = v; })} />
+            <Num label="Desequilibrio claro desde (puntos de diferencia PR − PA)" value={settings.kids.imbalance_clear} min={1} max={100} onChange={(v) => set((s) => { s.kids.imbalance_clear = v; })} />
+            <Num label="Desequilibrio marcado desde (puntos)" value={settings.kids.imbalance_marked} min={1} max={100} onChange={(v) => set((s) => { s.kids.imbalance_marked = v; })} />
+            <Num label="Rasgos de ambos perfiles si PR y PA son al menos (%)" value={settings.kids.both_high} min={1} max={100} onChange={(v) => set((s) => { s.kids.both_high = v; })} />
+          </Card>
+          <Card title="Enlaces y guías">
+            <Text label="Agenda una evaluación funcional (URL)" value={settings.kids.booking_url} onChange={(v) => set((s) => { s.kids.booking_url = v; })} />
+            <Text label="Guía roja para niños (PDF)" hint="Vacío = la misma guía roja de adultos." value={settings.kids.red_guide_url} onChange={(v) => set((s) => { s.kids.red_guide_url = v; })} />
+            <Text label="Guía azul para niños (PDF)" hint="Vacío = la misma guía azul de adultos." value={settings.kids.blue_guide_url} onChange={(v) => set((s) => { s.kids.blue_guide_url = v; })} />
+            <label className="flex items-start gap-3 text-[15px] text-ink-700">
+              <input type="checkbox" className="mt-1 h-5 w-5 accent-ink-900" checked={settings.kids.attach_pdf} onChange={(e) => set((s) => { s.kids.attach_pdf = e.target.checked; })} />
+              <span>Adjuntar el PDF al correo, además del botón de descarga</span>
+            </label>
+          </Card>
+          <div className="lg:col-span-2">
+            <Card title="Textos del correo" note="{nombre} se reemplaza por el nombre del niño, o por «tu hijo» si no se capturó. {perfil} por el nombre del perfil.">
+              <Text label="Asunto" value={settings.kids.subject} onChange={(v) => set((s) => { s.kids.subject = v; })} />
+              <Area label="Texto · perfil rojo" value={settings.kids.text_red} onChange={(v) => set((s) => { s.kids.text_red = v; })} />
+              <Area label="Texto · perfil azul" value={settings.kids.text_blue} onChange={(v) => set((s) => { s.kids.text_blue = v; })} />
+              <Area label="Línea de comunicación alternativa (solo si se comunica con gestos, señas, tablero o dispositivo)" value={settings.kids.text_comm} onChange={(v) => set((s) => { s.kids.text_comm = v; })} />
+              <Area label="Frase cuando PR y PA son altos" rows={2} value={settings.kids.text_both} onChange={(v) => set((s) => { s.kids.text_both = v; })} />
+              <Area label="Cierre del correo" rows={3} value={settings.kids.text_closing} onChange={(v) => set((s) => { s.kids.text_closing = v; })} />
+              <Area label="Aviso al pie (también aparece en el quiz)" rows={2} value={settings.kids.disclaimer} onChange={(v) => set((s) => { s.kids.disclaimer = v; })} />
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[240px] flex-1"><Text label="Enviar correo de prueba de niños a" value={kidsTestTo} onChange={setKidsTestTo} placeholder="tu@correo.com" /></div>
+                <button className="btn-primary py-3 text-sm" onClick={testKidsEmail} disabled={!kidsTestTo}>Enviar prueba</button>
+              </div>
+            </Card>
+          </div>
+          <div className="lg:col-span-2"><button className="btn-primary" onClick={save} disabled={saving}>{saving ? "Guardando…" : "Guardar cambios"}</button></div>
+        </section>
+      )}
+
       {tab === "integrations" && settings && (
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
           <div className="lg:col-span-2">
             <Card title="Correo de resultados (Resend)" toggle={settings.email.enabled} onToggle={(v) => set((s) => { s.email.enabled = v; })}
-              note="Al terminar el quiz, la persona recibe su perfil, sus indicadores y los enlaces a sus guías en el correo que registró.">
+              note="Remitente, respuesta y copia oculta se usan en ambos cuestionarios. La casilla Activa controla el correo de adultos; en el de niños el correo siempre se envía, porque es la única forma de entregar el resultado.">
               {!resend && <p className="rounded-lg bg-nbred-50 p-3 text-sm text-nbred-700">Falta la variable RESEND_API_KEY en Vercel. Sin ella no se envía ningún correo.</p>}
               <div className="grid gap-4 sm:grid-cols-2">
                 <Text label="Remitente" hint="El dominio debe estar verificado en Resend. Ej.: Neurobalance <resultados@neurobalance.com>" value={settings.email.from} onChange={(v) => set((s) => { s.email.from = v; })} />
@@ -296,4 +372,18 @@ function Num({ label, value, min, max, onChange }: { label: string; value: numbe
 }
 function Row({ k, v }: { k: string; v: string }) {
   return <div className="flex justify-between gap-4"><dt className="text-ink-500">{k}</dt><dd className="text-right">{v}</dd></div>;
+}
+
+function scoreText(r: ResponseRow) {
+  if (r.quiz_type === "kids") return r.details?.PR == null ? "—" : `PR ${r.details.PR} · PA ${r.details.PA}`;
+  const f = (k: string, v: number | null) => (v === null || v === undefined ? null : `${k} ${Math.round(Number(v))}`);
+  return [f("FL", r.fl), f("FR", r.fr), f("RL", r.rl), f("RR", r.rr)].filter(Boolean).join(" · ") || "—";
+}
+function Area({ label, value, onChange, rows = 5 }: { label: string; value: string; onChange: (v: string) => void; rows?: number }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[15px] font-medium">{label}</span>
+      <textarea className="field text-sm leading-relaxed" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  );
 }

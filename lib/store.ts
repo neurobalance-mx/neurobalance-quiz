@@ -26,6 +26,8 @@ export interface ResponseRow {
   guide_urls: string[] | null;
   utm: Record<string, string> | null;
   integrations_log: unknown[] | null;
+  quiz_type?: "adults" | "kids"; // columna agregada en la migración 002; ausente = adultos
+  details?: Record<string, any> | null; // datos propios de la versión niños
 }
 
 let client: SupabaseClient | null = null;
@@ -90,18 +92,19 @@ export async function updateResponse(id: string, patch: Partial<ResponseRow>): P
   return data as ResponseRow;
 }
 
-export async function listResponses(opts: { limit?: number; status?: string; result?: string } = {}): Promise<ResponseRow[]> {
+export async function listResponses(opts: { limit?: number; status?: string; result?: string; type?: string } = {}): Promise<ResponseRow[]> {
   const limit = opts.limit ?? 500;
   const db = sb();
   if (!db) {
     return [...mem.responses.values()]
-      .filter((r: ResponseRow) => (!opts.status || r.status === opts.status) && (!opts.result || r.result === opts.result))
+      .filter((r: ResponseRow) => (!opts.status || r.status === opts.status) && (!opts.result || r.result === opts.result) && (!opts.type || (r.quiz_type || "adults") === opts.type))
       .sort((a: ResponseRow, b: ResponseRow) => b.created_at.localeCompare(a.created_at))
       .slice(0, limit);
   }
   let q = db.from("quiz_responses").select("*").order("created_at", { ascending: false }).limit(limit);
   if (opts.status) q = q.eq("status", opts.status);
   if (opts.result) q = q.eq("result", opts.result);
+  if (opts.type) q = q.eq("quiz_type", opts.type);
   const { data, error } = await q;
   if (error) throw error;
   return (data as ResponseRow[]) ?? [];

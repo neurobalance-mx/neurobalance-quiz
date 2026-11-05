@@ -93,10 +93,25 @@ export function renderResultEmail(i: EmailInput, settings: AppSettings) {
 }
 
 export async function sendResultEmail(i: EmailInput, settings: AppSettings): Promise<IntegrationLog> {
+  const { subject, html, text } = renderResultEmail(i, settings);
+  return sendEmail({ to: i.to, subject, html, text }, settings);
+}
+
+export interface OutgoingEmail {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  attachments?: { path: string; filename: string }[]; // Resend descarga el archivo desde la URL
+}
+
+/** Envío genérico con Resend usando remitente, respuesta y copia oculta configurados en el panel. */
+export async function sendEmail(m: OutgoingEmail, settings: AppSettings): Promise<IntegrationLog> {
   const at = new Date().toISOString();
   const key = process.env.RESEND_API_KEY;
   if (!key) return { target: "email", ok: false, error: "Falta RESEND_API_KEY", at };
-  const { subject, html, text } = renderResultEmail(i, settings);
+  const { subject, html, text, to } = m;
+  const i = { to };
   const bcc = settings.email.bcc.split(",").map((s) => s.trim()).filter(Boolean);
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
@@ -110,6 +125,7 @@ export async function sendResultEmail(i: EmailInput, settings: AppSettings): Pro
         subject,
         html,
         text,
+        ...(m.attachments?.length ? { attachments: m.attachments } : {}),
         ...(settings.email.reply_to ? { reply_to: settings.email.reply_to } : {}),
         ...(bcc.length ? { bcc } : {}),
       }),

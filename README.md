@@ -24,7 +24,23 @@ Web app del cuestionario de 42 preguntas, con cálculo de los cuatro indicadores
 
 Los parámetros UTM de la URL (`?utm_source=instagram`) se guardan con cada respuesta.
 
-## Flujo
+## Versión niños (`/ninos`)
+
+La página principal (`/`) muestra dos opciones: **Para un niño** (`/ninos`) y **Para un adulto** (`/adultos`). Los UTM se conservan al elegir; también puedes enlazar directo a cada ruta.
+
+- Lo contesta el padre, madre o cuidador: bienvenida → nombre del niño (opcional), edad (2–5, 6–12, 13–17) y forma de comunicarse → 6 áreas de 8 casillas → correo → confirmación.
+- Con 2 a 5 años no se muestran las conductas 44, 45 y 46 (se guardan como `null`).
+- PR = R marcadas ÷ R mostradas × 100 · PA igual con A. Gana el mayor; empates: Movimiento, luego Vida diaria y sentidos, al final rojo.
+- Intensidad por % total marcado (leve < 25, moderada 25–49, marcada ≥ 50). Desequilibrio por |PR − PA| (ligero < 10, claro 10–24, marcado ≥ 25). Editables en **/admin → Niños**.
+- El resultado **no** se muestra en pantalla: llega por correo con barras por área, conductas marcadas, la guía (enlace y PDF adjunto) y el botón para agendar. La confirmación permite **Reenviar correo** (máx. 3 veces).
+- Sin casillas marcadas no se pide correo ni se envía nada.
+- Se guarda en `quiz_responses` con `quiz_type = 'kids'`, `quiz_version = 'parents_v1'`, casillas `c01…c48` en `answers` y el resto en `details`.
+
+**Antes de desplegar esta versión** ejecuta `supabase/migration-002-ninos.sql` en el SQL Editor de Supabase.
+
+Pruebas: `npm run test:scoring` (incluye el ejemplo del documento: PR 46 %, PA 17 %, moderada, marcado).
+
+## Flujo (adultos, `/adultos`)
 
 Bienvenida → registro (nombre, correo, teléfono opcional, aviso de privacidad, consentimiento comercial separado) → sobre quién y edad → 6 bloques de 6 preguntas → contexto P37–P39 → P40–P42 → resultado.
 

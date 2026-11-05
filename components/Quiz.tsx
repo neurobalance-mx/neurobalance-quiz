@@ -322,7 +322,7 @@ export default function Quiz({ privacyUrl }: { privacyUrl: string }) {
           <p className="mb-3 text-sm text-nbred-600">Responde las preguntas marcadas para continuar.</p>
         )}
         <div className="flex items-center justify-between gap-3">
-          {stepIdx > 0 ? <button type="button" className="btn-ghost" onClick={() => setStepIdx((i) => i - 1)} disabled={busy}>Atrás</button> : <span />}
+          {stepIdx > 0 ? <button type="button" className="btn-ghost" onClick={() => setStepIdx((i) => i - 1)} disabled={busy}>Atrás</button> : <a href="/" className="btn-ghost">Volver</a>}
           <button type="button" className="btn-primary min-w-[150px]" onClick={next} disabled={busy}>
             {busy ? "Un momento…" : step.kind === "welcome" ? "Comenzar" : stepIdx === STEPS.length - 1 ? "Ver mi resultado" : "Continuar"}
           </button>
@@ -332,7 +332,7 @@ export default function Quiz({ privacyUrl }: { privacyUrl: string }) {
   );
 }
 
-function Shell({ children, topRef }: { children: React.ReactNode; topRef: React.RefObject<HTMLDivElement> }) {
+export function Shell({ children, topRef }: { children: React.ReactNode; topRef: React.RefObject<HTMLDivElement> }) {
   return (
     <main className="mx-auto max-w-[680px] px-4 pb-10 pt-4 sm:px-6 sm:pt-8">
       <div ref={topRef} className="scroll-mt-4" />
@@ -345,7 +345,7 @@ function Shell({ children, topRef }: { children: React.ReactNode; topRef: React.
   );
 }
 
-function Progress({ value, label }: { value: number; label: string }) {
+export function Progress({ value, label }: { value: number; label: string }) {
   return (
     <div className="mt-3">
       <div className="flex justify-between text-sm text-ink-500"><span>{label}</span><span>{Math.round(value * 100)}%</span></div>
@@ -356,7 +356,7 @@ function Progress({ value, label }: { value: number; label: string }) {
   );
 }
 
-function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) {
+export function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1.5 flex items-baseline justify-between text-[15px] font-medium">

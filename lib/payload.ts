@@ -3,6 +3,7 @@ import { CONTEXT_QUESTIONS, contextLabel, AGE_BANDS, type TargetType } from "./q
 import { PROFILE_TEXTS } from "./texts";
 import type { ResponseRow } from "./store";
 import type { ResultKind } from "./types";
+import { KIDS_AGE_BANDS, KIDS_ITEMS, KIDS_PROFILE, COMMUNICATION_OPTIONS, itemCode } from "./kids";
 
 const RESULT_LABEL: Record<string, string> = {
   red: "Rojo", blue: "Azul", combined: "Combinado", insufficient: "Información insuficiente",
@@ -12,9 +13,12 @@ const ANSWER_LABEL = ["Nunca", "Rara vez", "A veces", "Frecuentemente", "Casi si
 export type FlatPayload = Record<string, string | number | boolean | null>;
 
 export function buildPayload(r: ResponseRow): FlatPayload {
+  if (r.quiz_type === "kids") return buildKidsPayload(r);
   const target = (r.target_type as TargetType) || "self";
   const p: FlatPayload = {
     response_id: r.id,
+    quiz_type: "adults",
+    quiz_label: "Adultos",
     created_at: r.created_at,
     completed_at: r.status === "completed" ? r.updated_at : null,
     status: r.status,
@@ -51,9 +55,58 @@ export function buildPayload(r: ResponseRow): FlatPayload {
   return p;
 }
 
+function buildKidsPayload(r: ResponseRow): FlatPayload {
+  const d = r.details || {};
+  const result = r.result === "red" || r.result === "blue" ? r.result : null;
+  const p: FlatPayload = {
+    response_id: r.id,
+    quiz_type: "kids",
+    quiz_label: "Niños",
+    created_at: r.created_at,
+    completed_at: d.sent_at || r.updated_at,
+    status: r.status,
+    quiz_version: r.quiz_version,
+    name: r.name || "",
+    first_name: (r.name || "").trim().split(/\s+/)[0] || "",
+    last_name: (r.name || "").trim().split(/\s+/).slice(1).join(" "),
+    email: r.email,
+    phone: r.phone || "",
+    consent_privacy: r.consent_privacy,
+    consent_marketing: r.consent_marketing,
+    child_name: r.subject_name || "",
+    age_band: r.age_band,
+    age_label: KIDS_AGE_BANDS.find((a) => a.value === r.age_band)?.label || "",
+    communication: d.communication || "",
+    communication_label: COMMUNICATION_OPTIONS.find((c) => c.value === d.communication)?.label || "",
+    result,
+    result_label: result === "red" ? "Rojo" : result === "blue" ? "Azul" : "",
+    profile_name: result ? KIDS_PROFILE[result].name : "",
+    PR: d.PR ?? null,
+    PA: d.PA ?? null,
+    total_marked_pct: d.total ?? null,
+    intensity: d.intensity || "",
+    imbalance: d.imbalance || "",
+    both_profiles: !!d.bothHigh,
+    guide_urls: (r.guide_urls || []).join(" | "),
+    email_sent: !!d.sent_at,
+  };
+  for (const a of (d.areas || []) as { id: number; R: number | null; A: number | null }[]) {
+    p[`area${a.id}_R`] = a.R;
+    p[`area${a.id}_A`] = a.A;
+  }
+  for (const it of KIDS_ITEMS) {
+    const v = (r.answers as any)?.[itemCode(it.id)];
+    p[itemCode(it.id)] = v === null || v === undefined ? "" : v;
+  }
+  const utm = r.utm || {};
+  for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) p[k] = utm[k] || "";
+  return p;
+}
+
 export function toCSV(rows: FlatPayload[]): string {
   if (!rows.length) return "";
-  const headers = Object.keys(rows[0]);
+  // Unión de columnas: adultos y niños tienen campos distintos.
+  const headers = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
   const esc = (v: unknown) => {
     const s = v === null || v === undefined ? "" : String(v);
     return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

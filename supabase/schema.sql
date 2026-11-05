@@ -17,7 +17,7 @@ create table if not exists public.quiz_responses (
   consent_marketing boolean not null default false,  -- separado de usos comerciales
   -- Configuración
   target_type       text check (target_type in ('self','other')),
-  age_band          text check (age_band in ('0_2','3_5','6_12','13_17','18_plus')),
+  age_band          text check (age_band in ('0_2','3_5','2_5','6_12','13_17','18_plus')),
   subject_name      text,
   -- Respuestas individuales: {"1":0..4|null, ... "36": ...}; null = "No observado"
   answers           jsonb,
@@ -29,6 +29,8 @@ create table if not exists public.quiz_responses (
   guide_urls        text[],
   utm               jsonb,
   integrations_log  jsonb,
+  quiz_type         text not null default 'adults' check (quiz_type in ('adults','kids')),
+  details           jsonb,  -- versión niños: comunicación, PR/PA, intensidad, desequilibrio, áreas, envío
   user_agent        text
 );
 

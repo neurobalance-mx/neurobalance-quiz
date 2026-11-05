@@ -25,7 +25,27 @@ export interface AppSettings {
     subject: string; // {nombre} y {perfil} se reemplazan
     bcc: string; // copia interna opcional (separada por comas)
   };
+  kids: KidsSettings;
   integrations: IntegrationSettings;
+}
+
+export interface KidsSettings {
+  intensity_moderate: number;
+  intensity_marked: number;
+  imbalance_clear: number;
+  imbalance_marked: number;
+  both_high: number;
+  booking_url: string;
+  red_guide_url: string; // vacío = usar la guía roja general
+  blue_guide_url: string;
+  attach_pdf: boolean; // adjuntar el PDF además del botón de descarga
+  subject: string; // {nombre} y {perfil}
+  text_red: string; // {nombre}
+  text_blue: string;
+  text_comm: string;
+  text_both: string;
+  text_closing: string;
+  disclaimer: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -40,6 +60,28 @@ export const DEFAULT_SETTINGS: AppSettings = {
     reply_to: "",
     subject: "{nombre}, este es tu Perfil Cerebral Neurobalance",
     bcc: "",
+  },
+  kids: {
+    intensity_moderate: 25,
+    intensity_marked: 50,
+    imbalance_clear: 10,
+    imbalance_marked: 25,
+    both_high: 30,
+    booking_url: "https://www.neurobalance.mx/reserva-online",
+    red_guide_url: "",
+    blue_guide_url: "",
+    attach_pdf: true,
+    subject: "El Perfil Cerebral de {nombre}: {perfil}",
+    text_red:
+      "El perfil de {nombre} muestra un predominio del hemisferio izquierdo: El Arquitecto Verbal. El hemisferio izquierdo es el de las palabras, los datos, el detalle y las secuencias. En este perfil suelen destacar la memoria, el lenguaje y el interés profundo por ciertos temas. Cuando este predominio es marcado, pueden aparecer retos en las áreas que organiza el hemisferio derecho: el cuerpo, los sentidos, las emociones, la atención y la convivencia. En la guía adjunta encontrarás el contraste entre los dos hemisferios, las fortalezas de este perfil, los retos que pueden asociarse a él en niños y en adultos, y actividades para empezar en casa.",
+    text_blue:
+      "El perfil de {nombre} muestra un predominio del hemisferio derecho: El Integrador Contextual. El hemisferio derecho es el del cuerpo, el espacio, la intuición y la conexión con los demás. En este perfil suelen destacar la sensibilidad, la coordinación y la facilidad para leer a las personas. Cuando este predominio es marcado, pueden aparecer retos en las áreas que organiza el hemisferio izquierdo: el lenguaje, la lectura, las secuencias, la motricidad fina, la memoria y la motivación. En la guía adjunta encontrarás el contraste entre los dos hemisferios, las fortalezas de este perfil, los retos que pueden asociarse a él en niños y en adultos, y actividades para empezar en casa.",
+    text_comm:
+      "Que {nombre} no use el habla para comunicarse no indica cuánto entiende. El habla es una de las habilidades motoras más complejas del cuerpo, y el cerebro que comprende puede estar muy por delante de la boca que habla.",
+    text_both: "Se observan rasgos de ambos perfiles, con uno más marcado que el otro.",
+    text_closing:
+      "Gracias por completar el Perfil Cerebral de tu hijo. Revisa la guía con calma: te ayudará a entender cómo funciona su cerebro y qué puedes hacer desde casa.",
+    disclaimer: "Este ejercicio ayuda a comprender un perfil hemisférico. No es un diagnóstico ni una recomendación médica.",
   },
   integrations: {
     ghl: { enabled: false, mode: "webhook", webhook_url: "", api_token: "", location_id: "", tags: "quiz-neurobalance" },

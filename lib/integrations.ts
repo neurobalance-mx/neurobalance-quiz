@@ -25,6 +25,7 @@ async function ghlApiUpsert(s: AppSettings["integrations"]["ghl"], p: FlatPayloa
   const tags = [
     ...s.tags.split(",").map((t) => t.trim()).filter(Boolean),
     p.result ? `neurobalance-${p.result}` : "",
+    p.quiz_type === "kids" ? "neurobalance-ninos" : "neurobalance-adultos",
   ].filter(Boolean);
   return post(
     "https://services.leadconnectorhq.com/contacts/upsert",

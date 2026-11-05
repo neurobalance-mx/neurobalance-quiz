@@ -5,6 +5,6 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const u = new URL(req.url);
-  const rows = await listResponses({ limit: 500, status: u.searchParams.get("status") || undefined, result: u.searchParams.get("result") || undefined });
+  const rows = await listResponses({ limit: 500, status: u.searchParams.get("status") || undefined, result: u.searchParams.get("result") || undefined, type: u.searchParams.get("type") || undefined });
   return NextResponse.json({ rows });
 }
